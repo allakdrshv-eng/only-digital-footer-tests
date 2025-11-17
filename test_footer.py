@@ -1,76 +1,44 @@
 import pytest
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+
+from footer_section import FooterSection
+
 
 BASE_URL = "https://only.digital"
 
-# Набор страниц, где проверяем футер
 PAGES = [
-    "/en",          # главная (англ. версия)
-    "/en#projects", # секция projects
-    "/en#clients",  # секция clients
+    "/en",          # главная
+    "/en/projects",
+    "/en/company",
+    "/en/fields",
+    "/en/job",
+    "/en/blog",
+    "/en/contacts",
 ]
-
-FOOTER_NAV_ITEMS = ["Work", "About us", "What we do", "Career", "Blog", "Contacts"]
-
-
-def get_footer(driver):
-    """
-    Вспомогательная функция: скроллим вниз и возвращаем элемент <footer>.
-    """
-    wait = WebDriverWait(driver, 15)
-
-    # Убеждаемся, что страница прогрузилась
-    wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
-
-    # Скроллим в самый низ, чтобы футер гарантированно был в DOM и виден
-    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-
-    # Ждём появления футера
-    footer = wait.until(
-        EC.presence_of_element_located((By.TAG_NAME, "footer"))
-    )
-    return footer
 
 
 @pytest.mark.parametrize("path", PAGES)
-def test_footer_presence_and_elements(driver, path):
+def test_footer_common_elements_present(driver, path):
+    """Проверка, что на ключевых страницах футер содержит
+    навигацию, контакты, соцсети, privacy и копирайт.
     """
-    Проверяем:
-    - футер присутствует на странице;
-    - есть email;
-    - есть копирайт;
-    - есть ссылка Privacy policy;
-    - есть ссылки на соцсети;
-    - дублируются пункты навигации.
-    """
+
     driver.get(BASE_URL + path)
 
-    footer = get_footer(driver)
-    footer_text = footer.text
+    footer = FooterSection(driver)
 
-    # 1. Privacy policy — как базовый якорь футера
-    privacy_link = footer.find_element(By.LINK_TEXT, "Privacy policy")
-    assert privacy_link.is_displayed(), "Ссылка 'Privacy policy' не отображается в футере"
+    # 1. Есть футер и ссылка на политику конфиденциальности
+    assert footer.has_privacy_policy(), "В футере нет ссылки 'Privacy policy'"
 
-    # 2. Контактные данные
-    assert "hello@only.digital" in footer_text, "В футере нет email hello@only.digital"
+    # 2. Есть e-mail hello@only.digital
+    assert footer.email_link_present(), "В футере нет email hello@only.digital"
 
-    # 3. Копирайт (оба варианта, которые могут быть)
-    assert "© 2014 - 2025" in footer_text or "only.digital © 2014-2025" in footer_text, \
-        "В футере нет текста копирайта"
+    # 3. Есть копирайт
+    assert footer.has_copyright(), "В футере нет корректного текста копирайта"
 
-    # 4. Соцсети (Behance, Telegram, VK и т.п.)
-    social_links = footer.find_elements(
-        By.XPATH,
-        ".//a[contains(@href, 'behance.net') or "
-        "contains(@href, 't.me') or "
-        "contains(@href, 'vk.com')]"
-    )
-    assert social_links, "В футере не найдены ссылки на социальные сети"
+    # 4. Навигация: Work, About us, What we do, Career, Blog, Contacts
+    nav_links = footer.nav_links()
+    missing = [label for label, elems in nav_links.items() if not elems]
+    assert not missing, f"В футере нет пунктов навигации: {', '.join(missing)}"
 
-    # 5. Навигационные пункты (дубликат основного меню)
-    for item in FOOTER_NAV_ITEMS:
-        links = footer.find_elements(By.LINK_TEXT, item)
-        assert links, f"В футере нет пункта навигации '{item}'"
+    # 5. Есть хотя бы одна ссылка на соцсети
+    assert footer.social_links(), "В футере не найдены ссылки на социальные сети"
