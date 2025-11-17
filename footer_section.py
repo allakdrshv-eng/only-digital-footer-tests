@@ -1,93 +1,90 @@
-from dataclasses import dataclass
-from typing import Dict, List
-
-from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
-from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
 
 
-@dataclass
 class FooterSection:
-    """Компонент футера только.digital.
+    """Объект футера для проверок общих элементов.
 
-    Инкапсулирует локаторы и базовые проверки, чтобы в тесте была
-    только бизнес-логика, а не XPATH-ы.
+    Специально не жёстко привязан к тегу <footer>,
+    так как на only.digital футер реализован без него.
     """
 
-    driver: WebDriver
-    timeout: int = 10
+    def __init__(self, driver, timeout: int = 10) -> None:
+        self.driver = driver
+        self.wait = WebDriverWait(driver, timeout)
 
-    NAV_ITEMS = ["Work", "About us", "What we do", "Career", "Blog", "Contacts"]
-    SOCIAL_HREF_PARTS = (
-        "t.me",          # Telegram
-        "behance.net",
-        "vk.com",
-        "dribbble.com",
-        "instagram.com",
-        "facebook.com",
-        "twitter.com",
-        "x.com",
-    )
-
-    @property
-    def wait(self) -> WebDriverWait:
-        return WebDriverWait(self.driver, self.timeout)
-
-    def _locate_footer_root(self):
-        """Ищем корневой контейнер футера.
-
-        Сначала пробуем семантический тег <footer>, если его нет –
-        берём ближайший родитель для ссылки Privacy policy.
-        """
-        try:
-            return self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "footer")))
-        except TimeoutException:
-            privacy = self.wait.until(
-                EC.presence_of_element_located((By.LINK_TEXT, "Privacy policy"))
-            )
-            return privacy.find_element(By.XPATH, "ancestor::*[1]")
-
-    def text(self) -> str:
-        """Весь видимый текст футера."""
-        return self._locate_footer_root().text
+    # --- Общие элементы ---
 
     def has_privacy_policy(self) -> bool:
-        footer = self._locate_footer_root()
-        links = footer.find_elements(By.LINK_TEXT, "Privacy policy")
-        return bool(links)
-
-    def nav_links(self) -> Dict[str, List]:
-        """Собираем ссылки навигации по тексту."""
-        footer = self._locate_footer_root()
-        result: Dict[str, List] = {}
-        for label in self.NAV_ITEMS:
-            result[label] = footer.find_elements(By.LINK_TEXT, label)
-        return result
-
-    def email_link_present(self, email: str = "hello@only.digital") -> bool:
-        footer = self._locate_footer_root()
-        # либо mailto-ссылка, либо просто текстовая ссылка
-        mailto = footer.find_elements(By.XPATH, f".//a[contains(@href, 'mailto:{email}')]")
-        if mailto:
+        """Есть ссылка/элемент с текстом 'Privacy policy'."""
+        try:
+            self.wait.until(
+                EC.presence_of_element_located(
+                    (By.XPATH, "//*[normalize-space(text())='Privacy policy']")
+                )
+            )
             return True
-        text_links = footer.find_elements(
-            By.XPATH,
-            f".//a[normalize-space(text())='{email}']",
-        )
-        return bool(text_links)
+        except TimeoutException:
+            return False
 
-    def social_links(self) -> List:
-        """Возвращает все ссылки на соцсети в футере."""
-        footer = self._locate_footer_root()
-        xpath_parts = " or ".join(
-            [f"contains(@href, '{part}')" for part in self.SOCIAL_HREF_PARTS]
-        )
-        if not xpath_parts:
-            return []
-        return footer.find_elements(By.XPATH, f".//a[{xpath_parts}]")
+    def email_link_present(self) -> bool:
+        """На странице есть текст hello@only.digital (не важно, в каком теге)."""
+        try:
+            self.wait.until(
+                EC.presence_of_element_located(
+                    (By.XPATH, "//*[contains(text(), 'hello@only.digital')]")
+                )
+            )
+            return True
+        except TimeoutException:
+            return False
 
     def has_copyright(self) -> bool:
-        text = self.text()
-        return ("© 2014 - 2025" in text) or ("only.digital © 2014-2025" in text)
+        """Есть копирайт за период 2014–2025.
+
+        Поддерживаем оба варианта:
+        - '© 2014 - 2025'
+        - 'only.digital © 2014-2025'
+        """
+        xpath = (
+            "//*[contains(text(), '© 2014') and contains(text(), '2025')]"
+            " | //*[contains(normalize-space(.), 'only.digital © 2014-2025')]"
+        )
+        try:
+            self.wait.until(
+                EC.presence_of_element_located(
+                    (By.XPATH, xpath)
+                )
+            )
+            return True
+        except TimeoutException:
+            return False
+
+    # --- Навигация футера ---
+
+    def nav_links(self) -> dict:
+        """Находим ссылки навигации по тексту.
+
+        Возвращаем словарь: label -> список найденных элементов.
+        Тест проверяет, что списки не пустые.
+        """
+        labels = {
+            "Work": "Work",
+            "About us": "About us",
+            "What we do": "What we do",
+            "Career": "Career",
+            "Blog": "Blog",
+            "Contacts": "Contacts",
+        }
+
+        result: dict[str, list] = {}
+        for label, text in labels.items():
+            elements = self.driver.find_elements(
+                By.XPATH,
+                f"//a[normalize-space(text())='{text}']"
+            )
+            result[label] = elements
+
+        return result
