@@ -1,22 +1,18 @@
 import pytest
 from selenium import webdriver
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.chrome.service import Service as ChromeService
+from selenium.webdriver.chrome.options import Options
 
 
 @pytest.fixture(scope="session")
 def driver():
-    options = webdriver.ChromeOptions()
-    options.add_argument("--headless=new")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
+    """Глобальный webdriver для всех тестов с минимальными настройками."""
 
-    driver = webdriver.Chrome(
-        service=ChromeService(ChromeDriverManager().install()),
-        options=options,
-    )
-    driver.set_window_size(1400, 900)
-    driver.implicitly_wait(5)
+    options = Options()
+    options.add_argument("--headless=new")          # без UI, чтобы тесты гонялись в CI
+    options.add_argument("--window-size=1400,900")  # фиксированный размер окна
+
+    driver = webdriver.Chrome(options=options)
+    driver.implicitly_wait(5)  # небольшой implicit wait, основное – явные ожидания в Page Object
 
     yield driver
     driver.quit()
