@@ -1,17 +1,20 @@
-# Автотест футера only.digital
+# only.digital – footer UI test (Selenium + pytest)
 
-Тест проверяет, что на выбранных страницах сайта:
+Автотест проверяет, что на ключевых страницах английской версии сайта  
+`https://only.digital` футер содержит:
 
-- присутствует футер;
-- в футере есть email `hello@only.digital`;
-- есть копирайт `© 2014 - 2025` или `only.digital © 2014-2025`;
-- есть ссылка `Privacy policy`;
-- есть ссылки на соцсети;
-- продублированы пункты основной навигации.
+- ссылку **Privacy policy**;
+- email `hello@only.digital`;
+- копирайт `© 2014 - 2025` / `only.digital © 2014-2025`;
+- пункты навигации `Work`, `About us`, `What we do`, `Career`, `Blog`, `Contacts`;
+- хотя бы одну ссылку на соцсети (Telegram/Behance/VK/и т.п.).
 
-## Установка
+## Запуск локально
 
 ```bash
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+venv\Scripts\activate          # Windows
+# source venv/bin/activate     # Linux / macOS
+
 pip install -r requirements.txt
+pytest -v
